@@ -6,22 +6,28 @@ module Debugger
         require 'ostruct'
 
         host = ENV['DEBUGGER_HOST']
-
+        sub_debugger_ports = if env['SUB_DEBUGGER_PORT_RANGE']
+                              ENV['SUB_DEBUGGER_PORT_RANGE'].split(/-/)
+                            else
+                              nil
+                            end
+        
         options ||= OpenStruct.new(
             'frame_bind'  => false,
             'host'        => host,
             'load_mode'   => false,
-            'port'        => find_free_port(host),
+            'port'        => find_free_port(host, sub_debugger_ports),
             'stop'        => false,
             'tracing'     => false,
             'int_handler' => true,
             'cli_debug'   => (ENV['DEBUGGER_CLI_DEBUG'] == 'true'),
             'notify_dispatcher' => true,
-            'evaluation_timeout' => 10
+            'evaluation_timeout' => 10,
+            'sub_debugger_port_range' => sub_debugger_ports 
         )
 
         if(options.ignore_port)
-          options.port = find_free_port(options.host)
+          options.port = find_free_port(options.host, sub_debugger_ports)
           options.notify_dispatcher = true
         end
       
@@ -50,11 +56,25 @@ module Debugger
       end
 
 
-      def find_free_port(host)
-        server = TCPServer.open(host, 0)
-        port   = server.addr[1]
-        server.close
-        port
+      def find_free_port(host, sub_debugger_ports=nil)
+        if sub_debugger_ports.nil?
+          server = TCPServer.open(host, 0)
+          port   = server.addr[1]
+          server.close
+          port
+        else
+          ports = Range.new(sub_debugger_ports[0], sub_debugger_ports[1]).to_a
+          begin
+            raise "No available ports in range #{child_process_ports[0]}-#{child_process_ports[1]}" if ports.empty?
+            port = ports.sample
+            server = TCPServer.open(host, port)
+            server.close
+            port
+          rescue Errno::EADDRINUSE
+            ports.delete(port)
+            retry
+          end
+        end
       end
     end
   end

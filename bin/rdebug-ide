@@ -24,7 +24,8 @@ options = OpenStruct.new(
     'catchpoint_deleted_event' => false,
     'value_as_nested_element' => false,
     'attach_mode' => false,
-    'cli_debug' => false
+    'cli_debug' => false,
+    'sub_debugger_port_range' => nil 
 )
 
 opts = OptionParser.new do |opts|
@@ -57,6 +58,10 @@ EOB
   opts.on("--dispatcher-port PORT", Integer, "Port used for multi-process debugging dispatcher") do |dp|
     options.dispatcher_port = dp
   end
+  opts.on("--sub-debugger-port-range MIN-MAX", String, "Port range to be used by sub-debuggers")
+  #  do |port_range|
+  #   option.sub_debugger_port_range = port_range ? port_range.split('-') : nil
+  # end
   opts.on('--evaluation-timeout TIMEOUT', Integer,'evaluation timeout in seconds (default: 10)') do |timeout|
     options.evaluation_timeout = timeout
   end
@@ -129,6 +134,9 @@ end
 
 if options.dispatcher_port != -1
   ENV['IDE_PROCESS_DISPATCHER'] = options.dispatcher_port.to_s
+  if options.sub_debugger_port_range
+    ENV['SUB_DEBUGGER_PORT_RANGE'] = options.sub_debugger_port_range.join('-')
+  end
   if RUBY_VERSION < "1.9"
     lib_path = File.expand_path(File.dirname(__FILE__) + "/../lib/")
     $: << lib_path unless $:.include? lib_path
